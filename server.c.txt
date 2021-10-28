@@ -1,0 +1,82 @@
+1. file name - server.c
+
+2. server terminal open 
+   -> gcc -o server server.c -lpthread
+   -> ./server
+
+3. code
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <pthread.h>
+#include <unistd.h>
+
+static int isThread = 1;
+static int client_sock=0;
+
+void * ThreadFunction(void * arg){
+    char message2[100];
+while(isThread){
+if(read(client_sock, message2, sizeof(message2)-1) == -1){
+printf("read error\n"); exit(0);
+}
+printf("msg : %s", message2);
+if(strcmp(message2, "exit/n") == 0){
+isThread = 0; exit(0);
+}
+}
+printf("end"); pthread_exit(0);
+}
+
+void main(){
+    pthread_t tid;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+
+    int server_sock=0;
+    struct sockaddr_in server_addr, client_addr;
+    char message[100];
+    int client_len= sizeof(client_addr);
+
+    if((server_sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP))==-1){
+        printf("socket error\n");
+        return;
+    }
+
+memset(&server_addr, 0, sizeof(server_addr));
+server_addr.sin_family = AF_INET;
+server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+server_addr.sin_port = htons(23000);
+
+    if(bind(server_sock, (struct sockaddr * )&server_addr, sizeof(server_addr)) < 0){
+        printf("bind error\n");
+        return;
+    }
+
+if(listen(server_sock, 5)<0){
+        printf("listen error\n");
+        return;
+    }
+
+    printf("Waiting\n");
+    client_sock = accept(server_sock, (struct sockaddr *) &client_addr, &client_len);
+
+    isThread = 1;
+    pthread_create(&tid, &attr, &ThreadFunction, (void *)0);
+
+    while(1){
+        fgets(message, sizeof(message), stdin);
+        if(strcmp(message, "exit\n")==0){
+isThread = 0;
+            break;
+        }
+        write(client_sock, message, sizeof(message));
+    }
+
+    close(client_sock);
+}
